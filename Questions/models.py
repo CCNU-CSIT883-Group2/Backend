@@ -76,10 +76,16 @@ class QuestionsModel(models.Model):
         db_table = 'Questions'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(type__in=['choice', 'blank']),
+                check=models.Q(type__in=['multi', 'single', 'blank']),
                 name='Questions_type_check'
             )
         ]
+
+
+class QuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionsModel
+        fields = '__all__'
 
 
 class ChoiceQuestionModel(models.Model):
@@ -120,11 +126,10 @@ class AttemptModel(models.Model):
         db_table = 'Attempt'
 
 
-class QuestionSerializer(serializers.ModelSerializer):
+class AttemptSerializer(serializers.ModelSerializer):
     class Meta:
-        model = QuestionsModel
+        model = AttemptModel
         fields = '__all__'
-
 # # Question History Model can store questions that have been generated in the past.
 # class QuestionsHistoryModel(models.Model):
 #     from User.models import UserModel

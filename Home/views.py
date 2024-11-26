@@ -49,7 +49,6 @@ def custom_jwt_payload_handler(user):
 #         token = api_settings.JWT_ENCODE_HANDLER(payload)
 #         return JsonResponse({'code': 200, 'token': token}, status=200)
 
-
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(View):
 
