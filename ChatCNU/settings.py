@@ -46,11 +46,13 @@ INSTALLED_APPS = [
     # "drf_spectacular"
     # "devtemplate",
     "drf_yasg"
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     # "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -58,6 +60,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "User.middleware.JwtTokenAuthenticationMiddleware",
 ]
+
+# CORS 配置, 解决跨域问题
+CORS_ALLOW_ALL_ORIGINS = True  # 允许所有来源
 
 ROOT_URLCONF = "ChatCNU.urls"
 
