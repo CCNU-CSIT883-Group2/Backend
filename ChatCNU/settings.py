@@ -24,7 +24,12 @@ SECRET_KEY = "django-insecure-d7#svk-%ux)uy_tvv_r#!*w9r-=if)uiao05x0^hccp^jjo6zb
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    # 'server.lzzzt.cn',
+    # 'localhost',
+    # '127.0.0.1',
+    '*'
+]
 
 # Application definition
 
@@ -63,6 +68,7 @@ MIDDLEWARE = [
 
 # CORS 配置, 解决跨域问题
 CORS_ALLOW_ALL_ORIGINS = True  # 允许所有来源
+
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
     "GET",

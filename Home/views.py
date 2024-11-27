@@ -71,8 +71,14 @@ class LoginView(View):
         except Exception as e:
             print(e)
             return JsonResponse({'code': 500, 'info': 'name or password error'}, status=500)
+        # return JsonResponse(
+        #     {'code': 200, 'token': token, 'info': 'login successfully', 'data': UserSerializer(user).data}, status=200)
         return JsonResponse(
-            {'code': 200, 'token': token, 'info': 'login successfully', 'data': UserSerializer(user).data}, status=200)
+            {'code': 200, 'info': 'login successfully',
+             'data': {
+                 'User': UserSerializer(user).data,
+                 'token': token
+             }}, status=200)
 
 
 class RegisterView(View):

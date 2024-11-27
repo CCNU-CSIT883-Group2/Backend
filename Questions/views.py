@@ -305,20 +305,44 @@ def questions_answer(request):
 class HistoryView(View):
 
     @staticmethod
-    def get(request):
-        data = json.loads(request.body)
-        name = data.get('username')
+    def post(request):
+        if not request.body:
+            return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
+
+        # data = json.loads(request.body)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+
+        print(request.body)
+        print()
+
+        # name = data.get('username')
+        name = data.get('data', {}).get('username', None)
+        print(f'name: {name}')
         hid = data.get('history_id')
         user = UserModel.objects.get(name=name)
         uid = user.UID
         if hid is None:
             history_list = HistoryModel.objects.filter(UID=uid).all()
-            return JsonResponse({'code': 200, 'info': 'get all history successfully!',
-                                 'data': HistorySerializer(history_list, many=True).data}, status=200)
+            if not history_list:
+                return JsonResponse({'code': 200, 'info': 'no history get!',
+                                     'data': []
+                                     }, status=200)
+            else:
+                return JsonResponse({'code': 200, 'info': 'get all history successfully!',
+                                     'data': HistorySerializer(history_list, many=True).data}, status=200)
         else:
             history_list = HistoryModel.objects.filter(UID=uid, history_id=hid).all()
-            return JsonResponse({'code': 200, 'info': 'get history successfully!',
-                                 'data': HistorySerializer(history_list, many=True).data}, status=200)
+            if not history_list:
+                return JsonResponse({'code': 200, 'info': 'no history get!',
+                                     'data': []
+                                     }, status=200)
+            else:
+                return JsonResponse({'code': 200, 'info': 'get history successfully!',
+                                     'data': HistorySerializer(history_list, many=True).data}, status=200)
 
     @staticmethod
     def delete(request):
@@ -417,7 +441,6 @@ class AttemptView(View):
         user = UserModel.objects.get(name=name)
         uid = user.UID
         if hid is not None:
-
             attempt = AttemptModel.objects.filter(UID=uid, history_id=hid)
             if attempt.exists():
                 return JsonResponse({'code': 200, 'info': 'get attempt successfully!',
