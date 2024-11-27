@@ -45,14 +45,14 @@ INSTALLED_APPS = [
     "Questions",
     # "drf_spectacular"
     # "devtemplate",
-    "drf_yasg"
+    "drf_yasg",
     "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     # "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -63,6 +63,14 @@ MIDDLEWARE = [
 
 # CORS 配置, 解决跨域问题
 CORS_ALLOW_ALL_ORIGINS = True  # 允许所有来源
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "DELETE",
+    "PUT",
+    "PATCH",
+]
 
 ROOT_URLCONF = "ChatCNU.urls"
 
@@ -134,7 +142,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [
-    BASE_DIR / "static"
+
 ]
 
 # Default primary key field type
