@@ -87,133 +87,192 @@ class BlankQuestionDetail:
 
 def questions_create(request):
     # 前端需要在body中提供 subject和 tag
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'code': 400, 'info': 'method is not POST'}, status=400)
+    # end
+
+    '''检测消息体是否为空'''
+    if not request.body:
+        return JsonResponse({'code': 400, 'info': 'request body is empty!'}, status=400)
+    try:
         data = json.loads(request.body)
-        uid = data.get('UID')
-        subject = data.get('subject')
-        tag = data.get('tag')
-        q_type = data.get('type')
-        q_num = data.get('number')
+    except json.JSONDecodeError:
+        return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+    '''end'''
 
-        ''' history '''
+    '''传入参数健壮性检测'''
+    name = data.get('data', {}).get('name', None)
+    if not name:
+        return JsonResponse({'code': 400, 'info': 'name field is empty!'}, status=400)
 
+    subject = data.get('data', {}).get('subject', None)
+    if not subject:
+        return JsonResponse({'code': 400, 'info': 'subject field is empty!'}, status=400)
+
+    tag = data.get('data', {}).get('tag', None)
+    if not tag:
+        return JsonResponse({'code': 400, 'info': 'tag field is empty!'}, status=400)
+
+    q_type = data.get('data', {}).get('type', None)
+    if not q_type:
+        return JsonResponse({'code': 400, 'info': 'type field is empty!'}, status=400)
+
+    q_num = data.get('data', {}).get('number', None)
+    if not q_num:
+        q_num = 3  # number默认值为3
+    '''end'''
+
+    try:
+        user = UserModel.objects.get(name=name)
+    except UserModel.DoesNotExist:
+        return JsonResponse({'code': 500, 'info': 'user does not exist!'}, status=500)
+
+    uid = user.UID
+
+    ''' history '''
+    try:
         user_instance = UserModel.objects.get(UID=uid)
-        new_history = HistoryModel(
-            subject=subject,
-            tag=tag,
-            UID=user_instance,
+    except UserModel.DoesNotExist:
+        return JsonResponse({'code': 501, 'info': 'User does not exist!'}, status=501)
+
+    new_history = HistoryModel(
+        subject=subject,
+        tag=tag,
+        UID=user_instance,
+    )
+    new_history.save()
+
+    ''' questions '''
+
+    questions = []
+
+    if q_type == 'multi':
+        config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
+        client = gai.Client(config)
+        g = generator.ChoiceQuestionGenerator(
+            subject, tag, generator.ChoiceType.Multi, client
         )
-        new_history.save()
+        questions.extend(g.generate(q_num))
+    elif q_type == 'single':
+        config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
+        client = gai.Client(config)
+        g = generator.ChoiceQuestionGenerator(
+            subject, tag, generator.ChoiceType.Single, client
+        )
+        questions.extend(g.generate(q_num))
+    else:
+        config = gai.TestConfig(gai.test_client.TestQuestionType.Blank)
+        client = gai.Client(config)
+        g = generator.BlankQuestionGenerator(
+            subject, tag, client
+        )
+        questions.extend(g.generate(q_num))
 
-        ''' questions '''
-
-        questions = []
-
-        if q_type == 'multi':
-            config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
-            client = gai.Client(config)
-            g = generator.ChoiceQuestionGenerator(
-                subject, tag, generator.ChoiceType.Multi, client
-            )
-            questions.extend(g.generate(q_num))
-        elif q_type == 'single':
-            config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
-            client = gai.Client(config)
-            g = generator.ChoiceQuestionGenerator(
-                subject, tag, generator.ChoiceType.Single, client
-            )
-            questions.extend(g.generate(q_num))
-        else:
-            config = gai.TestConfig(gai.test_client.TestQuestionType.Blank)
-            client = gai.Client(config)
-            g = generator.BlankQuestionGenerator(
-                subject, tag, client
-            )
-            questions.extend(g.generate(q_num))
-
+    try:
         history_id_instance = HistoryModel.objects.get(history_id=new_history.history_id)
+    except HistoryModel.DoesNotExist:
+        return JsonResponse({'code': 502, 'info': 'History does not exist!'}, status=502)
 
-        for question in questions:
-            print(question.model_dump_json(indent=2))
+    for question in questions:
+        print(question.model_dump_json(indent=2))
 
-            new_question = QuestionsModel(
-                content=question.question,
-                explanation=question.explanation,
-                difficulty=question.difficulty,
-                time_require=question.time_require,
-                type=q_type,
-                history_id=history_id_instance,
-            )
-            new_question.save()
+        new_question = QuestionsModel(
+            content=question.question,
+            explanation=question.explanation,
+            difficulty=question.difficulty,
+            time_require=question.time_require,
+            type=q_type,
+            history_id=history_id_instance,
+        )
+        new_question.save()
 
+        try:
             qid_instance = QuestionsModel.objects.get(QID=new_question.QID)
-
-            if q_type == 'multi' or q_type == 'single':
-                new_choice = ChoiceQuestionModel(
-                    option1=question.options[0],
-                    option2=question.options[1],
-                    option3=question.options[2],
-                    option4=question.options[3],
-                    correct_answers=question.answer,
-                    QID=qid_instance,
-                )
-                new_choice.save()
-            else:
-                new_choice = BlankQuestionModel(
-                    correct_answer=question.answer,
-                    QID=qid_instance,
-                )
-                new_choice.save()
-
-        # question_list = QuestionsModel.objects.all()
-
-        max_hid = HistoryModel.objects.aggregate(Max('history_id'))['history_id__max']
-        history = HistoryModel.objects.filter(history_id=max_hid)
-        questions = QuestionsModel.objects.filter(history_id=max_hid)
-
-        question_set = []
+        except QuestionsModel.DoesNotExist:
+            return JsonResponse({'code': 503, 'info': 'Question does not exist!'}, status=503)
 
         if q_type == 'multi' or q_type == 'single':
-            for question in questions:
-                question_set.append(ChoiceQuestionDetail(question))
+            new_choice = ChoiceQuestionModel(
+                option1=question.options[0],
+                option2=question.options[1],
+                option3=question.options[2],
+                option4=question.options[3],
+                correct_answers=question.answer,
+                QID=qid_instance,
+            )
+            new_choice.save()
         else:
-            for question in questions:
-                question_set.append(BlankQuestionDetail(question))
+            new_choice = BlankQuestionModel(
+                correct_answer=question.answer,
+                QID=qid_instance,
+            )
+            new_choice.save()
 
-        for q in question_set:
-            print(q.to_dict())
+    # question_list = QuestionsModel.objects.all()
 
-        # question_json_list = [q.model_dump_json() for q in questions]
-        # questions_json = f"[{','.join(question_json_list)}]"
-        # questions = json.loads(questions_json)
+    # 拿到最新生成的题目
+    max_hid = HistoryModel.objects.aggregate(Max('history_id'))['history_id__max']
+    history = HistoryModel.objects.filter(history_id=max_hid)
+    if not history:
+        return JsonResponse({'code': 504, 'info': 'History does not exist!'}, status=504)
+    questions = QuestionsModel.objects.filter(history_id=max_hid)
+    if not questions:
+        return JsonResponse({'code': 505, 'info': 'Questions do not exist!'}, status=505)
 
-        # questions_json = serializers.serialize('json', questions)
-        # questions_data = json.loads(questions_json)
+    question_set = []
 
-        # return JsonResponse(
-        #     {'code': 200, 'subject': subject, 'tag': tag, 'type': q_type,
-        #      'data': QuestionSerializer(questions, many=True).data},
-        #     status=200)
-
-        return JsonResponse(
-            {'code': 200, 'info': 'questions create successfully!',
-             'data': {
-                 'subject': subject,
-                 'tag': tag,
-                 'type': q_type,
-                 'questions': [q.to_dict() for q in question_set],
-                 'history': HistorySerializer(history, many=True).data,
-                 'number': q_num,
-             }}, status=200)
-
+    if q_type == 'multi' or q_type == 'single':
+        for question in questions:
+            question_set.append(ChoiceQuestionDetail(question))
     else:
-        return JsonResponse({'code': 400, 'msg': 'method is not POST'}, status=400)
+        for question in questions:
+            question_set.append(BlankQuestionDetail(question))
+
+    for q in question_set:
+        print(q.to_dict())
+
+    # question_json_list = [q.model_dump_json() for q in questions]
+    # questions_json = f"[{','.join(question_json_list)}]"
+    # questions = json.loads(questions_json)
+
+    # questions_json = serializers.serialize('json', questions)
+    # questions_data = json.loads(questions_json)
+
+    # return JsonResponse(
+    #     {'code': 200, 'subject': subject, 'tag': tag, 'type': q_type,
+    #      'data': QuestionSerializer(questions, many=True).data},
+    #     status=200)
+
+    return JsonResponse(
+        {'code': 200, 'info': 'questions create successfully!',
+         'data': {
+             'subject': subject,
+             'tag': tag,
+             'type': q_type,
+             'questions': [q.to_dict() for q in question_set],
+             'history': HistorySerializer(history, many=True).data,
+             'number': q_num,
+         }}, status=200)
 
 
 def questions_search(request):
-    data = json.loads(request.body)
-    hid = data.get("history_id")
+    if request.method != 'GET':
+        return JsonResponse({'code': 400, 'info': 'method is not GET'}, status=400)
+
+    # if not request.body:
+    #     return JsonResponse({'code': 400, 'info': 'request body is empty!'}, status=400)
+    # try:
+    #     data = json.loads(request.body)
+    # except json.JSONDecodeError:
+    #     return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+
+    hid = request.GET.get("history_id")
+    if not hid:
+        return JsonResponse({'code': 400, 'info': 'history_id is empty!'}, status=400)
+
     questions = QuestionsModel.objects.filter(history_id=hid)
+    if not questions:
+        return JsonResponse({'code': 500, 'info': 'Questions do not exist!'}, status=500)
 
     questions_set = []
     for q in questions:
@@ -251,17 +310,35 @@ def questions_search(request):
 def questions_answer(request):
     # 前端需要提供 QID
     if request.method == 'GET':
-        data = json.loads(request.body)
-        qid = data.get('QID')
-        question = QuestionsModel.objects.get(pk=qid)
+        # if not request.body:
+        #     return JsonResponse({'code': 400, 'info': 'request body is empty!'}, status=400)
+        # try:
+        #     data = json.loads(request.body)
+        # except json.JSONDecodeError:
+        #     return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+
+        qid = request.GET.get('QID')
+        if not qid:
+            return JsonResponse({'code': 400, 'info': 'invalid QID!'}, status=400)
+
+        try:
+            question = QuestionsModel.objects.get(pk=qid)
+        except QuestionsModel.DoesNotExist:
+            return JsonResponse({'code': 500, 'info': 'Question does not exist!'}, status=500)
+
         # answer = QuestionSerializer(question).data.get('a_options')
         # explanation = QuestionSerializer(question).data.get('explanation')
-        if question.type == 'choice':
+        if question.type == 'multi' or question.type == 'single':
             content = question.content
             explanation = question.explanation
             difficulty = question.difficulty
             time_require = question.time_require
-            cq = ChoiceQuestionModel.objects.get(QID=qid)
+
+            try:
+                cq = ChoiceQuestionModel.objects.get(QID=qid)
+            except ChoiceQuestionModel.DoesNotExist:
+                return JsonResponse({'code': 501, 'info': 'ChoiceQuestion does not exist!'}, status=501)
+
             option1 = cq.option1
             option2 = cq.option2
             option3 = cq.option3
@@ -286,7 +363,12 @@ def questions_answer(request):
             explanation = question.explanation
             difficulty = question.difficulty
             time_require = question.time_require
-            bq = BlankQuestionModel.objects.get(QID=qid)
+
+            try:
+                bq = BlankQuestionModel.objects.get(QID=qid)
+            except BlankQuestionModel.DoesNotExist:
+                return JsonResponse({'code': 502, 'info': 'BlankQuestion does not exist!'}, status=502)
+
             answer = bq.correct_answers
             return JsonResponse(
                 {'code': 200, 'info': 'ok',
@@ -305,29 +387,38 @@ def questions_answer(request):
 class HistoryView(View):
 
     @staticmethod
-    def post(request):
-        if not request.body:
-            return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
+    def get(request):
+        # if not request.body:
+        #     return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
+        # try:
+        #     data = json.loads(request.body)
+        # except json.JSONDecodeError:
+        #     return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+        #
+        # print(request.body)
+        # print()
+        #
+        # name = data.get('data', {}).get('username', None)
+        # hid = data.get('data', {}).get('history_id', None)
 
-        # data = json.loads(request.body)
+        if request.method != 'GET':
+            return JsonResponse({'code': 400, 'info': 'method is not GET'}, status=400)
+
+        name = request.GET.get('username')
+        hid = request.GET.get('history_id')
+
+        if name is None:
+            return JsonResponse({'code': 400, 'info': 'name is empty!'}, status=400)
 
         try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+            user = UserModel.objects.get(name=name)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 500, 'info': 'Username does not exist!'}, status=500)
 
-        print(request.body)
-        print()
-
-        # name = data.get('username')
-        name = data.get('data', {}).get('username', None)
-        print(f'name: {name}')
-        hid = data.get('history_id')
-        user = UserModel.objects.get(name=name)
         uid = user.UID
         if hid is None:
             history_list = HistoryModel.objects.filter(UID=uid).all()
-            if not history_list:
+            if not history_list.exists():
                 return JsonResponse({'code': 200, 'info': 'no history get!',
                                      'data': []
                                      }, status=200)
@@ -336,7 +427,7 @@ class HistoryView(View):
                                      'data': HistorySerializer(history_list, many=True).data}, status=200)
         else:
             history_list = HistoryModel.objects.filter(UID=uid, history_id=hid).all()
-            if not history_list:
+            if not history_list.exists():
                 return JsonResponse({'code': 200, 'info': 'no history get!',
                                      'data': []
                                      }, status=200)
@@ -346,17 +437,28 @@ class HistoryView(View):
 
     @staticmethod
     def delete(request):
-        data = json.loads(request.body)
-        name = data.get('username')
-        hid = data.get('history_id')
-        user = UserModel.objects.get(name=name)
+        if not request.body:
+            return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+
+        name = data.get('data', {}).get('username', None)
+        hid = data.get('data', {}).get('history_id', None)
+
+        try:
+            user = UserModel.objects.get(name=name)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 500, 'info': 'Username does not exist!'}, status=500)
         uid = user.UID
+
         history_obj = HistoryModel.objects.filter(history_id=hid, UID=uid)
-        if history_obj.exists():
-            history_obj.delete()
-            return JsonResponse({'code': 200, 'info': 'history delete successfully!'}, status=200)
-        else:
-            return JsonResponse({'code': 400, 'info': 'history delete fail, because history not exist!'}, status=400)
+        if not history_obj:
+            return JsonResponse({'code': 501, 'info': 'History delete fail, because history not exist!'}, status=501)
+
+        history_obj.delete()
+        return JsonResponse({'code': 200, 'info': 'history delete successfully!'}, status=200)
 
 
 # def history_delete(request):
@@ -435,47 +537,95 @@ class AttemptView(View):
 
     @staticmethod
     def get(request):
-        data = json.loads(request.body)
-        name = data.get('username')
-        hid = data.get('history_id')
-        user = UserModel.objects.get(name=name)
+        # if not request.body:
+        #     return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
+        # try:
+        #     data = json.loads(request.body)
+        # except json.JSONDecodeError:
+        #     return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+        #
+        # name = data.get('username')
+        # hid = data.get('history_id')
+        if request.method != 'GET':
+            return JsonResponse({'code': 400, 'info': 'method is not GET'}, status=400)
+
+        name = request.GET.get('username')
+        hid = request.GET.get('history_id')
+
+        if name is None:
+            return JsonResponse({'code': 400, 'info': 'name is empty!'}, status=400)
+
+        try:
+            user = UserModel.objects.get(name=name)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 500, 'info': 'Username does not exist!'}, status=500)
+
         uid = user.UID
+
         if hid is not None:
-            attempt = AttemptModel.objects.filter(UID=uid, history_id=hid)
-            if attempt.exists():
+            try:
+                attempt = AttemptModel.objects.filter(UID=uid, history_id=hid)
+            except AttemptModel.DoesNotExist:
+                return JsonResponse({'code': 501, 'info': 'attempt not exist!'}, status=501)
+            else:
                 return JsonResponse({'code': 200, 'info': 'get attempt successfully!',
                                      'data': AttemptSerializer(attempt, many=True).data}, status=200)
-            else:
-                return JsonResponse({'code': 400, 'info': 'attempt not exist!'}, status=400)
         else:
-            attempt = AttemptModel.objects.filter(UID=uid)
-            if attempt.exists():
+            try:
+                attempt = AttemptModel.objects.filter(UID=uid)
+            except AttemptModel.DoesNotExist:
+                return JsonResponse({'code': 502, 'info': 'attempt not exist!'}, status=502)
+            else:
                 return JsonResponse({'code': 200, 'info': 'get all attempt successfully!',
                                      'data': AttemptSerializer(attempt, many=True).data}, status=200)
-            else:
-                return JsonResponse({'code': 400, 'info': 'user not exist!'}, status=400)
 
     @staticmethod
     def post(request):
         # data receive
-        data = json.loads(request.body)
-        name = data.get('username')
-        hid = data.get('history_id')
-        qid = data.get('QID')
-        tp = data.get('type')
-        cans = data.get('choice_answers')
-        bans = data.get('blank_answer')
+        if not request.body:
+            return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+
+        name = data.get('data', {}).get('username', None)
+        hid = data.get('data', {}).get('history_id', None)
+        qid = data.get('data', {}).get('QID', None)
+        tp = data.get('data', {}).get('type', None)
+        cans = data.get('data', {}).get('choice_answers', None)
+        bans = data.get('data', {}).get('blank_answer', None)
 
         # data judge
-        if tp == 'choice':
-            cq = ChoiceQuestionModel.objects.get(QID=qid)
+        if name is None:
+            return JsonResponse({'code': 400, 'info': 'name is empty!'}, status=400)
+        if hid is None:
+            return JsonResponse({'code': 400, 'info': 'history_id is empty!'}, status=400)
+        if qid is None:
+            return JsonResponse({'code': 400, 'info': 'QID is empty!'}, status=400)
+        if tp is None:
+            return JsonResponse({'code': 400, 'info': 'type is empty!'}, status=400)
+        if cans is None and bans is None:
+            return JsonResponse({'code': 400, 'info': 'cans and bans are empty!'}, status=400)
+
+        if tp == 'multi' or tp == 'single':
+            try:
+                cq = ChoiceQuestionModel.objects.get(QID=qid)
+            except ChoiceQuestionModel.DoesNotExist:
+                return JsonResponse({'code': 500, 'info': 'choice question not exist!'}, status=500)
+
             refer_ans = cq.correct_answers  # get reference answers
+
             if set(cans) == set(refer_ans):
                 is_correct = True
             else:
                 is_correct = False
-        else:
-            bq = BlankQuestionModel.objects.get(QID=qid)
+        else:  # blank
+            try:
+                bq = BlankQuestionModel.objects.get(QID=qid)
+            except BlankQuestionModel.DoesNotExist:
+                return JsonResponse({'code': 501, 'info': 'blank question not exist!'}, status=501)
+
             refer_ans = bq.correct_answer  # get reference answers
             if set(bans) == set(refer_ans):
                 is_correct = True
@@ -484,15 +634,31 @@ class AttemptView(View):
         # end data judge and get is_correct elem
 
         # attemp save
-        user = UserModel.objects.get(name=name)
+        try:
+            user = UserModel.objects.get(name=name)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 502, 'info': 'user not exist!'}, status=502)
+
         uid = user.UID
 
         if AttemptModel.objects.filter(UID=uid, QID=qid, history_id=hid).exists() is False:
             # 新的attempt记录
-            user_instance = UserModel.objects.get(UID=uid)
-            question_instance = QuestionsModel.objects.get(QID=qid)
-            history_instance = HistoryModel.objects.get(history_id=hid)
-            if tp == 'choice':
+            try:
+                user_instance = UserModel.objects.get(UID=uid)
+            except UserModel.DoesNotExist:
+                return JsonResponse({'code': 503, 'info': 'user not exist!'}, status=503)
+
+            try:
+                question_instance = QuestionsModel.objects.get(QID=qid)
+            except QuestionsModel.DoesNotExist:
+                return JsonResponse({'code': 504, 'info': 'question not exist!'}, status=504)
+
+            try:
+                history_instance = HistoryModel.objects.get(history_id=hid)
+            except HistoryModel.DoesNotExist:
+                return JsonResponse({'code': 505, 'info': 'history not exist!'}, status=505)
+
+            if tp == 'multi' or tp == 'single':
                 new_attempt = AttemptModel(
                     user_answers=cans,
                     is_correct=is_correct,
@@ -510,27 +676,40 @@ class AttemptView(View):
                     history_id=history_instance,
                 )
                 new_attempt.save()
-            max_aid = AttemptModel.objects.aggregate(Max('attempt_id'))['attempt_id__max']
-            attempt = AttemptModel.objects.get(attempt_id=max_aid)
 
+            max_aid = AttemptModel.objects.aggregate(Max('attempt_id'))['attempt_id__max']
+            try:
+                attempt = AttemptModel.objects.get(attempt_id=max_aid)
+            except AttemptModel.DoesNotExist:
+                return JsonResponse({'code': 506, 'info': 'attempt not exist!'}, status=506)
+
+            # 更新progress
             attempt_list = AttemptModel.objects.filter(history_id=hid)
             total = QuestionsModel.objects.filter(history_id=hid).count()
             done = attempt_list.filter(is_correct__isnull=False).count()
             progress = round(done / total, 2) if total > 0 else 0
 
-            history = HistoryModel.objects.get(history_id=hid)
+            try:
+                history = HistoryModel.objects.get(history_id=hid)
+            except HistoryModel.DoesNotExist:
+                return JsonResponse({'code': 507, 'info': 'history not exist!'}, status=507)
+
             history.progress = progress
             history.save()
 
-            return JsonResponse({'code': 200, 'info': 'ok',
+            return JsonResponse({'code': 200, 'info': 'new attempt create successfully!',
                                  'data': {
                                      'attempt': AttemptSerializer(attempt).data}
                                  },
                                 status=200)
         else:
             # 更新已存在的attempt记录
-            attempt = AttemptModel.objects.get(UID=uid, QID=qid, history_id=hid)
-            if tp == 'choice':
+            try:
+                attempt = AttemptModel.objects.get(UID=uid, QID=qid, history_id=hid)
+            except AttemptModel.DoesNotExist:
+                return JsonResponse({'code': 508, 'info': 'attempt not exist!'}, status=508)
+
+            if tp == 'multi' or tp == 'single':
                 attempt.user_answers = cans
                 attempt.is_corret = is_correct
                 attempt.save()
@@ -539,7 +718,7 @@ class AttemptView(View):
                 attempt.is_corret = is_correct
                 attempt.save()
 
-            return JsonResponse({'code': 200, 'info': 'ok',
+            return JsonResponse({'code': 200, 'info': 'attempt update successfully!',
                                  'data': {
                                      'attempt': AttemptSerializer(attempt).data}
                                  },
@@ -555,11 +734,22 @@ class StatisticsView(View):
 
     @staticmethod
     def get(request):
-        data = json.loads(request.body)
-        name = data.get('username')
-        sbj = data.get('subject')
-        user = UserModel.objects.get(name=name)
+        if request.method != 'GET':
+            return JsonResponse({'code': 400, 'info': 'method is not GET!'}, status=400)
+
+        name = request.GET.get('username')
+        sbj = request.GET.get('subject')
+
+        if name is None:
+            return JsonResponse({'code': 400, 'info': 'name is empty!'}, status=400)
+
+        try:
+            user = UserModel.objects.get(name=name)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 500, 'info': 'user not exist!'}, status=500)
+
         uid = user.UID
+
         if sbj is not None:
             history_list = HistoryModel.objects.filter(UID=uid, subject=sbj)
 

@@ -49,6 +49,7 @@ def custom_jwt_payload_handler(user):
 #         token = api_settings.JWT_ENCODE_HANDLER(payload)
 #         return JsonResponse({'code': 200, 'token': token}, status=200)
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(View):
 
@@ -58,7 +59,15 @@ class LoginView(View):
         # nickname = request.GET.get('nickname')
         # password = request.GET.get('password')
         # json传参
-        data = json.loads(request.body)
+
+        if not request.body:
+            return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+
         name = data.get('name')
         password = data.get('password')
 
@@ -85,7 +94,15 @@ class RegisterView(View):
 
     @staticmethod
     def post(request):
-        data = json.loads(request.body)
+
+        if not request.body:
+            return JsonResponse({'code': 400, 'info': 'request body is empty!'}, status=400)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
+
         new_name = data.get('name')
         new_password = data.get('password')
         new_email = data.get('email')
@@ -114,29 +131,58 @@ class RegisterView(View):
         new_user.save()
 
         return JsonResponse(
-            {'code': 200, 'info': 'New user created successfully.', 'data': UserSerializer(new_user).data}, status=200)
+            {'code': 200, 'info': 'New user created successfully.',
+             'data': UserSerializer(new_user).data
+             }, status=200)
 
 
 class ProfileView(View):
 
     @staticmethod
     def get(request):
-        data = json.loads(request.body)
-        name = data.get('name')
+        # if not request.body:
+        #     return JsonResponse({'code': 400, 'info': 'request body is empty!'}, status=400)
+        # try:
+        #     data = json.loads(request.body)
+        # except json.JSONDecodeError:
+        #     return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
 
-        user = UserModel.objects.get(name=name)
+        name = request.GET.get('name')
+        if not name:
+            return JsonResponse({'code': 400, 'info': 'name field is empty!'}, status=400)
+
+        try:
+            user = UserModel.objects.get(name=name)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 500, 'info': 'user does not exist!'}, status=500)
+
         return JsonResponse({'code': 200, 'info': 'user profile get successfully',
                              'data': UserSerializer(user).data}, status=200)
 
     @staticmethod
     def post(request):
-        data = json.loads(request.body)
-        uid = data.get('UID')
-        new_name = data.get('name')
-        new_password = data.get('password')
-        new_email = data.get('email')
+        if not request.body:
+            return JsonResponse({'code': 400, 'info': 'request body is empty!'}, status=400)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
 
-        user = UserModel.objects.get(UID=uid)
+        name = data.get('name')
+        try:
+            user = UserModel.objects.get(name=name)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 500, 'info': 'user does not exist!'}, status=500)
+        uid = user.UID
+
+        new_name = data.get('newname')
+        new_password = data.get('newpassword')
+        new_email = data.get('newemail')
+
+        try:
+            user = UserModel.objects.get(UID=uid)
+        except UserModel.DoesNotExist:
+            return JsonResponse({'code': 501, 'info': 'user does not exist!'}, status=501)
 
         if new_name is None and new_password is None and new_email is None:
             return JsonResponse({'code': 200, 'info': 'Nothing happen'}, status=200)
