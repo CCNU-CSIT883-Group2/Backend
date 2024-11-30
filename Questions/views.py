@@ -100,6 +100,8 @@ def questions_create(request):
         return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
     '''end'''
 
+    print(data)
+
     '''传入参数健壮性检测'''
     name = data.get('data', {}).get('name', None)
     if not name:
@@ -120,6 +122,11 @@ def questions_create(request):
     q_num = data.get('data', {}).get('number', None)
     if not q_num:
         q_num = 3  # number默认值为3
+
+    model = data.get('data', {}).get('model', None)
+    if not model:
+        return JsonResponse({'code': 400, 'info': 'model field is empty!'}, status=400)
+    
     '''end'''
 
     try:
@@ -147,26 +154,123 @@ def questions_create(request):
     questions = []
 
     if q_type == 'multi':
-        config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
-        client = gai.Client(config)
-        g = generator.ChoiceQuestionGenerator(
-            subject, tag, generator.ChoiceType.Multi, client
-        )
-        questions.extend(g.generate(q_num))
+        # config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
+        # client = gai.Client(config)
+        # g = generator.ChoiceQuestionGenerator(
+        #     subject, tag, generator.ChoiceType.Multi, client
+        # )
+        # questions.extend(g.generate(q_num))
+        if model == 'T':
+            config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
+            client = gai.Client(config)
+            g = generator.ChoiceQuestionGenerator(
+                subject, tag, generator.ChoiceType.Multi, client
+            )
+            questions.extend(g.generate(q_num))
+        elif model == 'C':
+            config = gai.ChatGPTConfig(
+                api_key="sk-NjvwOHtVBiMpH0BY5b58F390C80c4e308fDa640b097fA920",
+                model="gpt-4o",
+                endpoint="https://www.gptapi.us/v1/chat/completions"
+            )
+            client = gai.Client(config)
+
+            g = generator.ChoiceQuestionGenerator(
+                subject, tag, generator.ChoiceType.Multi, client
+            )
+            questions.extend(g.generate(q_num))
+        else:
+            if model != 'K':
+                return JsonResponse({'code': 400, 'info': 'model must be "T" or "C" or "K"!'}, status=400)
+            config = gai.KimiConfig(
+                api_key="sk-KvFJzeaXxT8jUfrr00YH74EFU1Q5KkSE6oRtuhAVY0OPnKhu",
+                model="moonshot-v1-32k",
+                endpoint="https://api.moonshot.cn/v1/"
+            )
+            client = gai.Client(config)
+
+            g = generator.ChoiceQuestionGenerator(
+                subject, tag, generator.ChoiceType.Multi, client
+            )
+            questions.extend(g.generate(q_num))
     elif q_type == 'single':
-        config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
-        client = gai.Client(config)
-        g = generator.ChoiceQuestionGenerator(
-            subject, tag, generator.ChoiceType.Single, client
-        )
-        questions.extend(g.generate(q_num))
+        # config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
+        # client = gai.Client(config)
+        # g = generator.ChoiceQuestionGenerator(
+        #     subject, tag, generator.ChoiceType.Single, client
+        # )
+        # questions.extend(g.generate(q_num))
+        if model == 'T':
+            config = gai.TestConfig(gai.test_client.TestQuestionType.Choice)
+            client = gai.Client(config)
+            g = generator.ChoiceQuestionGenerator(
+                subject, tag, generator.ChoiceType.Single, client
+            )
+            questions.extend(g.generate(q_num))
+        elif model == 'C':
+            config = gai.ChatGPTConfig(
+                api_key="sk-NjvwOHtVBiMpH0BY5b58F390C80c4e308fDa640b097fA920",
+                model="gpt-4o",
+                endpoint="https://www.gptapi.us/v1/chat/completions"
+            )
+            client = gai.Client(config)
+
+            g = generator.ChoiceQuestionGenerator(
+                subject, tag, generator.ChoiceType.Single, client
+            )
+            questions.extend(g.generate(q_num))
+        else:
+            if model != 'K':
+                return JsonResponse({'code': 400, 'info': 'model must be "T" or "C" or "K"!'}, status=400)
+            config = gai.KimiConfig(
+                api_key="sk-KvFJzeaXxT8jUfrr00YH74EFU1Q5KkSE6oRtuhAVY0OPnKhu",
+                model="moonshot-v1-32k",
+                endpoint="https://api.moonshot.cn/v1/"
+            )
+            client = gai.Client(config)
+
+            g = generator.ChoiceQuestionGenerator(
+                subject, tag, generator.ChoiceType.Single, client
+            )
+            questions.extend(g.generate(q_num))
     else:
-        config = gai.TestConfig(gai.test_client.TestQuestionType.Blank)
-        client = gai.Client(config)
-        g = generator.BlankQuestionGenerator(
-            subject, tag, client
-        )
-        questions.extend(g.generate(q_num))
+        # config = gai.TestConfig(gai.test_client.TestQuestionType.Blank)
+        # client = gai.Client(config)
+        # g = generator.BlankQuestionGenerator(
+        #     subject, tag, client
+        # )
+        # questions.extend(g.generate(q_num))
+        if model == 'T':
+            config = gai.TestConfig(gai.test_client.TestQuestionType.Blank)
+            client = gai.Client(config)
+            g = generator.BlankQuestionGenerator(
+                subject, tag, client
+            )
+            questions.extend(g.generate(q_num))
+        elif model == 'C':
+            config = gai.ChatGPTConfig(
+                api_key="sk-NjvwOHtVBiMpH0BY5b58F390C80c4e308fDa640b097fA920",
+                model="gpt-4o",
+                endpoint="https://www.gptapi.us/v1/chat/completions"
+            )
+            client = gai.Client(config)
+            g = generator.BlankQuestionGenerator(
+                subject, tag, client
+            )
+            questions.extend(g.generate(q_num))
+        else:
+            if model != 'K':
+                return JsonResponse({'code': 400, 'info': 'model must be "T" or "C" or "K"!'}, status=400)
+            config = gai.KimiConfig(
+                api_key="sk-KvFJzeaXxT8jUfrr00YH74EFU1Q5KkSE6oRtuhAVY0OPnKhu",
+                model="moonshot-v1-32k",
+                endpoint="https://api.moonshot.cn/v1/"
+            )
+            client = gai.Client(config)
+            g = generator.BlankQuestionGenerator(
+                subject, tag, client
+            )
+            questions.extend(g.generate(q_num))
 
     try:
         history_id_instance = HistoryModel.objects.get(history_id=new_history.history_id)
@@ -436,7 +540,7 @@ class HistoryView(View):
                                      'data': HistorySerializer(history_list, many=True).data}, status=200)
 
     @staticmethod
-    def delete(request):
+    def post(request):
         if not request.body:
             return JsonResponse({'code': 400, 'info': 'Request body is empty!'}, status=400)
         try:
@@ -444,17 +548,23 @@ class HistoryView(View):
         except json.JSONDecodeError:
             return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
 
+        print(data)
+
         name = data.get('data', {}).get('username', None)
         hid = data.get('data', {}).get('history_id', None)
+
+        print(f"name: {name}, hid: {hid}")
 
         try:
             user = UserModel.objects.get(name=name)
         except UserModel.DoesNotExist:
+            print({'code': 500, 'info': 'Username does not exist!'})
             return JsonResponse({'code': 500, 'info': 'Username does not exist!'}, status=500)
         uid = user.UID
 
         history_obj = HistoryModel.objects.filter(history_id=hid, UID=uid)
         if not history_obj:
+            print({'code': 501, 'info': 'History delete fail, because history not exist!'})
             return JsonResponse({'code': 501, 'info': 'History delete fail, because history not exist!'}, status=501)
 
         history_obj.delete()
@@ -607,6 +717,13 @@ class AttemptView(View):
             return JsonResponse({'code': 400, 'info': 'type is empty!'}, status=400)
         if cans is None and bans is None:
             return JsonResponse({'code': 400, 'info': 'cans and bans are empty!'}, status=400)
+        
+        if cans is not None:
+            if len(cans) == 0:
+                return JsonResponse({'code': 400, 'info': 'cans is empty, wdnmd!'}, status=400)
+        if bans is not None:
+            if len(bans) == 0:
+                return JsonResponse({'code': 400, 'info': 'bans is empty, wdnmd!'}, status=400)
 
         if tp == 'multi' or tp == 'single':
             try:
@@ -735,100 +852,101 @@ class StatisticsView(View):
     @staticmethod
     def get(request):
         if request.method != 'GET':
+            print(f"{'code': 400, 'info': 'method is not GET!'}")
             return JsonResponse({'code': 400, 'info': 'method is not GET!'}, status=400)
 
         name = request.GET.get('username')
         sbj = request.GET.get('subject')
 
+        print(f"name: {name}, subject: {sbj}")
+
         if name is None:
+            print(f"{'code': 400, 'info': 'name is empty!'}")
             return JsonResponse({'code': 400, 'info': 'name is empty!'}, status=400)
 
         try:
             user = UserModel.objects.get(name=name)
         except UserModel.DoesNotExist:
+            print(f"{'code': 500, 'info': 'user not exist!'}")
             return JsonResponse({'code': 500, 'info': 'user not exist!'}, status=500)
 
         uid = user.UID
 
-        if sbj is not None:
-            history_list = HistoryModel.objects.filter(UID=uid, subject=sbj)
+        history_list = HistoryModel.objects.filter(UID=uid, subject=sbj)
+        if len(history_list) == 0:
+            print(f"{'code': 501, 'info': 'no history exist!'}")
+            return JsonResponse({'code': 501, 'info': 'no history exist!'}, status=501)
 
-            question_list = []  # 保存history_list中全部的question.
+        question_list = []  # 保存history_list中全部的question.
 
-            # 获取符合要求的全部question实例，并把所有的实例都保存在question_list中。
-            for history in history_list:
-                hid = history.history_id
-                questions = QuestionsModel.objects.filter(history_id=hid)
-                for question in questions:
-                    question_list.append(question)
-            # end
+        # 获取符合要求的全部question实例，并把所有的实例都保存在question_list中。
+        for history in history_list:
+            hid = history.history_id
+            questions = QuestionsModel.objects.filter(history_id=hid)
+            for question in questions:
+                question_list.append(question)
+        # end
 
-            # 获取question_list中所有question的QID
-            qid_list = []
-            for question in question_list:
-                qid_list.append(question.QID)
-            # end
+        # 获取question_list中所有question的QID
+        qid_list = []
+        for question in question_list:
+            qid_list.append(question.QID)
+        # end
 
-            # 默认获取最新做题时间的那一周的统计信息
-            latest_time = AttemptModel.objects.filter(QID__in=qid_list) \
-                .aggregate(latest_attempt_time=Max('attempt_time'))['latest_attempt_time']
-            if latest_time:
-                start_of_week = (latest_time - timedelta(days=latest_time.weekday())).date()  # 确定latest_time的所在周的开始时间
-                end_of_week = (start_of_week + timedelta(days=6))  # 确定latest_time的所在周的结束时间
+        # 默认获取最新做题时间的那一周的统计信息
+        latest_time = AttemptModel.objects.filter(QID__in=qid_list) \
+            .aggregate(latest_attempt_time=Max('attempt_time'))['latest_attempt_time']
+        if latest_time:
+            start_of_week = (latest_time - timedelta(days=latest_time.weekday())).date()  # 确定latest_time的所在周的开始时间
+            end_of_week = (start_of_week + timedelta(days=6))  # 确定latest_time的所在周的结束时间
 
-                attempts_in_week = AttemptModel.objects.filter(
-                    # attempt_time__range=(start_of_week, end_of_week),
-                    # QID__in=qid_list
-                    attempt_time__date__gte=start_of_week,
-                    attempt_time__date__lte=end_of_week,
-                    QID__in=qid_list
-                )
+            attempts_in_week = AttemptModel.objects.filter(
+                # attempt_time__range=(start_of_week, end_of_week),
+                # QID__in=qid_list
+                attempt_time__date__gte=start_of_week,
+                attempt_time__date__lte=end_of_week,
+                QID__in=qid_list
+            )
 
-                # 记录每一天的统计数据
-                daily_statistics = []
-                questions_on_date = []  # 保存每天提交题目的QID
-                for day_offset in range(7):  # 遍历这一周的每一天
-                    current_date = start_of_week + timedelta(days=day_offset)
-                    attempts_on_date = attempts_in_week.filter(attempt_time__date=current_date)
+            # 记录每一天的统计数据
+            daily_statistics = []
+            questions_on_date = []  # 保存每天提交题目的QID
+            for day_offset in range(7):  # 遍历这一周的每一天
+                current_date = start_of_week + timedelta(days=day_offset)
+                attempts_on_date = attempts_in_week.filter(attempt_time__date=current_date)
 
-                    for attempt in attempts_on_date:
-                        questions_on_date.append(attempt.QID_id)  # attempt中的QID实质上是个QuestionModel，这里应该用QID_id来获取真正的QID
+                for attempt in attempts_on_date:
+                    questions_on_date.append(attempt.QID_id)  # attempt中的QID实质上是个QuestionModel，这里应该用QID_id来获取真正的QID
 
-                    total = attempts_on_date.count()
-                    correct = attempts_on_date.filter(is_correct=True).count()
-                    correct_rate = round(correct / total, 2) if total > 0 else 0
+                total = attempts_on_date.count()
+                correct = attempts_on_date.filter(is_correct=True).count()
+                correct_rate = round(correct / total, 2) if total > 0 else 0
 
-                    daily_statistics.append({
-                        'date': current_date,
-                        'total_attempts': total,
-                        'correct_attempts': correct,
-                        'correct_rate': correct_rate,
-                        'questions_on_date': questions_on_date
-                    })
+                daily_statistics.append({
+                    'date': current_date,
+                    'total_attempts': total,
+                    'correct_attempts': correct,
+                    'correct_rate': correct_rate,
+                    'questions_on_date': questions_on_date
+                })
 
-                    questions_on_date = []
+                questions_on_date = []
 
-                return JsonResponse({'code': 200, 'info': 'get statistics successfully!',
-                                     'data': {
-                                         'latest_time': latest_time,
-                                         'start_of_week': start_of_week,
-                                         'end_of_week': end_of_week,
-                                         'daily_statistics': daily_statistics}
-                                     }, status=200)
-            else:
-                attempts_in_week = AttemptModel.objects.none()  # 没有数据时返回空查询集
-                return JsonResponse({'code': 200, 'info': 'no latest attempt information',
-                                     'data': {
-                                         'history': HistorySerializer(history_list, many=True).data,
-                                         'QIDs': qid_list,
-                                         'attempts': AttemptSerializer(attempts_in_week, many=True).data}
-                                     },
-                                    status=200)
-            # end
-
-        else:
-            history_list = HistoryModel.objects.filter(UID=uid)
             return JsonResponse({'code': 200, 'info': 'get statistics successfully!',
-                                 'data': {
-                                     'history': HistorySerializer(history_list, many=True).data}
-                                 }, status=200)
+                                'data': {
+                                    'latest_time': latest_time,
+                                    'start_of_week': start_of_week,
+                                    'end_of_week': end_of_week,
+                                    'daily_statistics': daily_statistics}
+                                }, status=200)
+        else:
+            attempts_in_week = AttemptModel.objects.none()  # 没有数据时返回空查询集
+            return JsonResponse({'code': 502, 'info': 'no latest attempt information'},status=502)
+        # end
+
+        # else:
+        #     history_list = HistoryModel.objects.filter(UID=uid)
+        #     return JsonResponse({'code': 200, 'info': 'get statistics successfully!',
+        #                          'data': {
+        #                              'history': HistorySerializer(history_list, many=True).data}
+        #                          }, status=200)

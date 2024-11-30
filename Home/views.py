@@ -162,16 +162,20 @@ class ProfileView(View):
     @staticmethod
     def post(request):
         if not request.body:
+            print(f"{'code': 400, 'info': 'request body is empty!'}")
             return JsonResponse({'code': 400, 'info': 'request body is empty!'}, status=400)
         try:
             data = json.loads(request.body)
+            print(f'data: {data}')
         except json.JSONDecodeError:
+            print(f"{'code': 400, 'info': 'Invalid JSON format!'}")
             return JsonResponse({'code': 400, 'info': 'Invalid JSON format!'}, status=400)
 
         name = data.get('name')
         try:
             user = UserModel.objects.get(name=name)
         except UserModel.DoesNotExist:
+            print(f"{'code': 500, 'info': 'user does not exist!'}")
             return JsonResponse({'code': 500, 'info': 'user does not exist!'}, status=500)
         uid = user.UID
 
@@ -182,22 +186,35 @@ class ProfileView(View):
         try:
             user = UserModel.objects.get(UID=uid)
         except UserModel.DoesNotExist:
+            print(f"{'code': 501, 'info': 'user does not exist!'}")
             return JsonResponse({'code': 501, 'info': 'user does not exist!'}, status=501)
 
         if new_name is None and new_password is None and new_email is None:
+            print(f"{'code': 200, 'info': 'Nothing happen'}")
             return JsonResponse({'code': 200, 'info': 'Nothing happen'}, status=200)
         else:
             if new_name is not None:
+                if len(new_name) == 0:
+                    print(f"{'code': 400, 'info': 'error: new name is empty!'}")
+                    return JsonResponse({'code': 400, 'info': 'error: new name is empty!'}, status=400)
                 if UserModel.objects.exclude(UID=uid).filter(name=new_name).exists():
+                    print(f"{'code': 401, 'info': 'error: name already exists.'}")
                     return JsonResponse({'code': 401, 'info': 'error: name already exists.'}, status=401)
                 else:
                     user.name = new_name
 
             if new_password is not None:
+                if len(new_password) == 0:
+                    print(f"{'code': 400, 'info':'error: new password is empty!'}")
+                    return JsonResponse({'code': 400, 'info':'error: new password is empty!'}, status=400)
                 user.password = new_password
 
             if new_email is not None:
+                if len(new_email) == 0:
+                    print(f"{'code': 400, 'info':'error: new email is empty!'}")
+                    return JsonResponse({'code': 400, 'info':'error: new email is empty!'}, status=400)
                 if UserModel.objects.exclude(UID=uid).filter(email=new_email).exists():
+                    print(f"{'code': 402, 'info': 'error: Email already exists.'}")
                     return JsonResponse({'code': 402, 'info': 'error: Email already exists.'}, status=402)
                 else:
                     user.email = new_email
